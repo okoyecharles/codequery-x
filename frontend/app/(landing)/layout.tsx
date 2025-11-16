@@ -1,4 +1,5 @@
 import Navigation from "@/components/home/navigation";
+import { Suspense } from "react";
 
 export default function HomeLayout({
   children,
@@ -6,9 +7,11 @@ export default function HomeLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <main className="w-full min-h-screen">
-			<Navigation />
-      {children}
-    </main>
+    <Suspense>
+      <main className="w-full min-h-screen">
+        <Navigation />
+        {children}
+      </main>
+    </Suspense>
   );
 }
