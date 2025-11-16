@@ -21,15 +21,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function Submissions() {
   const search = useSearchParams().get("search") || "";
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuthStore();
   const { questions, getQuestions, searchQuestions } = useQuestionsStore();
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"all" | "mine">("all");
+
+  async function fetchQuestions() {
+    getQuestions().finally(() => {
+      setInitialLoad(false);
+    });
+  }
 
   // Focus input if search exists
   useEffect(() => {
@@ -42,7 +50,7 @@ export default function Submissions() {
   useEffect(() => {
     const handler = setTimeout(() => {
       if (searchTerm.trim() === "") {
-        getQuestions();
+        fetchQuestions();
       } else {
         searchQuestions(searchTerm);
       }
@@ -53,7 +61,7 @@ export default function Submissions() {
 
   // Filter client-side
   const filteredQuestions = useMemo(() => {
-		console.log(questions);
+    console.log(questions);
     if (!user || filter === "all") return questions;
     return questions.filter((q) => q.user._id === user._id);
   }, [questions, filter, user]);
@@ -104,7 +112,11 @@ export default function Submissions() {
       </Section>
 
       <Section>
-        {filteredQuestions.length > 0 ? (
+        {initialLoad ? (
+          <div className="min-h-[400px] flex flex-col items-center justify-center">
+						<Spinner />
+          </div>
+        ) : filteredQuestions.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {filteredQuestions.map((q) => (
               <QuestionCard key={q._id} question={q} />
