@@ -31,7 +31,7 @@ export default function Submissions() {
   const [initialLoad, setInitialLoad] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"all" | "mine">("all");
+  const [filter, setFilter] = useState<"all" | "mine">("mine");
 
   async function fetchQuestions() {
     getQuestions().finally(() => {
@@ -114,21 +114,31 @@ export default function Submissions() {
       <Section>
         {initialLoad ? (
           <div className="min-h-[400px] flex flex-col items-center justify-center">
-						<Spinner />
-          </div>
-        ) : filteredQuestions.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {filteredQuestions.map((q) => (
-              <QuestionCard key={q._id} question={q} />
-            ))}
+            <Spinner />
           </div>
         ) : (
-          <div className="min-h-[400px] flex flex-col items-center justify-center">
-            <SearchX size={90} className="text-gray-500" />
-            <span className="text-center text-sm text-gray-500">
-              No Questions Available
-            </span>
-          </div>
+          <>
+            <h2 className="text-lg md:text-xl font-black mb-2 flex items-center">
+							{filter === "all" || !user ? "All Questions" : "My Submissions"}
+              <span className="ml-2 text-sm md:text-base bg-blue-200 font-semibold text-blue-700 px-1 rounded-sm inline-flex items-center justify-center min-w-6">
+                {filteredQuestions.length}
+              </span>
+            </h2>
+            {filteredQuestions.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {filteredQuestions.map((q) => (
+                  <QuestionCard key={q._id} question={q} />
+                ))}
+              </div>
+            ) : (
+              <div className="min-h-[400px] flex flex-col items-center justify-center">
+                <SearchX size={90} className="text-gray-500" />
+                <span className="text-center text-sm text-gray-500">
+                  No Questions Available
+                </span>
+              </div>
+            )}{" "}
+          </>
         )}
       </Section>
     </div>
