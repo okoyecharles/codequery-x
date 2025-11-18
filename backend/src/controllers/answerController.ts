@@ -10,27 +10,42 @@ import mongoose from "mongoose";
 
 dotenv.config();
 
+function revisePrompt(question: QuestionType) {
+  const revisePromptt = `
+		Change the answer below.
+		Just the general answer, USE THE SAME HTML FORMATTING.
+		Important cause I am rendering it with innerHTML.
+		Answer: ${question.intelligentAnswer}
+		Question asked: ${question.question}
+---
+    If the question above is not programming related and/or isn't really a question at all, please let the user know that you could not find an answer to the question nicely with 200 character reason. Normal answers have a maximum of 750 characters (even if the answer wasnt responding previously).
+	`;
+
+  return revisePromptt;
+}
+
 function generatePrompt(question: QuestionType) {
   const preAnswerPrompt = `
     You are meant to help people find answers to programming related questions.
     
     If the question below is not programming related and/or isn't really a question at all, please let the user know that you could not find an answer to the question nicely with 200 character reason. Normal answers have a maximum of 750 characters.
 
-    ${question.intelligentAnswer ? `The question has already been answered. Please provide a new answer, (Previous Answer: ${question.intelligentAnswer}).` : ""}
-
-    RULES ABOUT ANSWER: user interface is rendered in html, please return your answer as HTML (the UI will render what you return in dangerouslySetInnerHTML. if you ever have to add code samples, use escape characters). To render <em> in a code sample you must return &lt;em&gt; (obviously use tags like <br> here to structure the code) but if you simply want to emphasize text go ahead and use <em>, this applies for everything.
-
-		Please do not use \`\`\`html \`\`\` to surround the answer (html won't format that). Never use markdown.
-
     Please provide an answer to the following question:
-
-    """
     ${question.question}
-    """
   `;
 
-  return preAnswerPrompt;
+  const postAnswerPrompt = `
+		This is a formatting request: the content below is to be rendered in html.
+		I am going to render it by using dangerouslySetInnerHTML={{ __html: content }}.
+		so any tags like <em> or <br> will be rendered as html. (convert any markdown formatting to html as well)
+		and if there is any code samples, please use escape characters.
+
+		Return only the output in html, here is the content:
+	`;
+
+  return { pre: preAnswerPrompt, post: postAnswerPrompt };
 }
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const genAIModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
@@ -75,23 +90,32 @@ export const getAIAnswer = async (req: Request, res: Response) => {
       return;
     }
 
-    const prompt = generatePrompt(question);
-    const result = await genAIModel.generateContent(prompt);
-		let response = result.response.text();
+    let response;
 
-		// strip off ```html and ``` from end of response
-		response = response.replace(/```html/g, "");
-		response = response.replace(/```/g, "");
-		question.intelligentAnswer = response;
+    if (!question.intelligentAnswer) {
+      const prompt = generatePrompt(question);
+      const result = await genAIModel.generateContent(prompt.pre);
+      response = result.response.text();
+      const formattedResult = await genAIModel.generateContent(
+        prompt.post + response,
+      );
+      response = formattedResult.response.text();
+    } else {
+      const prompt = revisePrompt(question);
+      const result = await genAIModel.generateContent(prompt);
+      response = result.response.text();
+    }
+
+    response = response.replace(/```html/g, "");
+    response = response.replace(/```/g, "");
+    question.intelligentAnswer = response;
     await question.save();
     const updatedQuestion = await getDetailedQuestion(id);
 
-    res
-      .status(200)
-      .json({
-        question: updatedQuestion,
-        message: "Intelligent answer added successfully",
-      });
+    res.status(200).json({
+      question: updatedQuestion,
+      message: "Intelligent answer added successfully",
+    });
   } catch (error) {
     res
       .status(500)
@@ -130,14 +154,12 @@ export const answerQuestion = async (
     await question.save();
     const updatedQuestion = await getDetailedQuestion(id);
 
-    res
-      .status(201)
-      .json({
-        question: updatedQuestion,
-        message: "Answer added successfully",
-      });
+    res.status(201).json({
+      question: updatedQuestion,
+      message: "Answer added successfully",
+    });
   } catch (error) {
-		console.log(error);
+    console.log(error);
     res
       .status(500)
       .json({ message: "Something went wrong... Please try again" });
@@ -176,12 +198,10 @@ export const deleteAnswer = async (
     await Answer.deleteOne({ _id: answerId });
     const updatedQuestion = await getDetailedQuestion(id);
 
-    res
-      .status(200)
-      .json({
-        question: updatedQuestion,
-        message: "Answer deleted successfully",
-      });
+    res.status(200).json({
+      question: updatedQuestion,
+      message: "Answer deleted successfully",
+    });
   } catch (error) {
     res
       .status(500)
@@ -218,12 +238,10 @@ export const updateAnswer = async (
     if (answerExists) answerExists.answer = answer;
     await answerExists.save();
     const updatedQuestion = await getDetailedQuestion(id);
-    res
-      .status(200)
-      .json({
-        question: updatedQuestion,
-        message: "Answer updated successfully",
-      });
+    res.status(200).json({
+      question: updatedQuestion,
+      message: "Answer updated successfully",
+    });
   } catch (error) {
     res
       .status(500)
